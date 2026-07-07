@@ -1,0 +1,505 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AuditHive Dashboard</title>
+<style>
+  :root {
+    --bg: #14110b;
+    --panel: #1e1a12;
+    --panel-2: #262117;
+    --line: #3a3120;
+    --ink: #f6efdd;
+    --muted: #b6a880;
+    --honey: #f5b301;
+    --honey-2: #ffcf3f;
+    --amber: #e8890c;
+    --good: #4caf72;
+    --warn: #e0a415;
+    --bad: #e5533c;
+    --queued: #6b6250;
+    --running: #f5b301;
+    --done: #4caf72;
+    --skipped: #6b6250;
+    --failed: #e5533c;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 15px/1.5 -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  a { color: var(--honey-2); }
+  header {
+    display: flex; align-items: center; gap: 14px;
+    padding: 14px 22px; border-bottom: 1px solid var(--line);
+    background: linear-gradient(180deg, #211b10, #14110b);
+    position: sticky; top: 0; z-index: 5;
+  }
+  .hex {
+    width: 30px; height: 34px; flex: 0 0 auto;
+    background: var(--honey);
+    clip-path: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%);
+    display: grid; place-items: center; color: #241c05; font-weight: 800;
+  }
+  h1 { font-size: 18px; margin: 0; letter-spacing: .3px; }
+  h1 span { color: var(--honey); }
+  .sub { color: var(--muted); font-size: 12px; margin-top: 2px; }
+  nav { margin-left: auto; display: flex; gap: 6px; }
+  nav button {
+    background: transparent; color: var(--muted); border: 1px solid var(--line);
+    padding: 7px 14px; border-radius: 8px; cursor: pointer; font-size: 13px;
+  }
+  nav button.active { background: var(--honey); color: #241c05; border-color: var(--honey); font-weight: 700; }
+  nav button:hover:not(.active) { color: var(--ink); border-color: var(--honey); }
+  main { max-width: 1080px; margin: 0 auto; padding: 22px; }
+  .view { display: none; }
+  .view.active { display: block; }
+  .card {
+    background: var(--panel); border: 1px solid var(--line);
+    border-radius: 12px; padding: 18px; margin-bottom: 16px;
+  }
+  .card h2 { margin: 0 0 4px; font-size: 15px; color: var(--honey-2); }
+  .card .hint { color: var(--muted); font-size: 12px; margin-bottom: 14px; }
+  label { display: block; font-size: 12px; color: var(--muted); margin: 12px 0 4px; }
+  input[type=text], input[type=url], input[type=number], select {
+    width: 100%; background: var(--panel-2); border: 1px solid var(--line);
+    color: var(--ink); border-radius: 8px; padding: 9px 11px; font-size: 14px;
+  }
+  input:focus, select:focus { outline: none; border-color: var(--honey); }
+  .row { display: flex; gap: 14px; flex-wrap: wrap; }
+  .row > div { flex: 1 1 200px; }
+  .vp { display: flex; gap: 8px; align-items: center; }
+  .vp input { width: 90px; }
+  .grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+    gap: 12px;
+  }
+  .agent-row {
+    display: grid; grid-template-columns: 22px 1fr 130px; gap: 10px; align-items: center;
+    padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel-2);
+  }
+  .agent-row .nm { font-size: 13px; }
+  .agent-row .nm small { color: var(--muted); display: block; font-size: 11px; }
+  .btns { display: flex; gap: 10px; margin-top: 18px; flex-wrap: wrap; }
+  button.primary {
+    background: var(--honey); color: #241c05; border: none; font-weight: 700;
+    padding: 10px 18px; border-radius: 9px; cursor: pointer; font-size: 14px;
+  }
+  button.ghost {
+    background: transparent; color: var(--honey-2); border: 1px solid var(--honey);
+    padding: 10px 18px; border-radius: 9px; cursor: pointer; font-size: 14px;
+  }
+  button.primary:hover { background: var(--honey-2); }
+  .toast { font-size: 12px; color: var(--good); margin-top: 10px; min-height: 16px; }
+  .toast.err { color: var(--bad); }
+  code, .mono { font-family: "Cascadia Code", Consolas, monospace; }
+  .cmdbox {
+    background: #0e0c07; border: 1px solid var(--line); border-radius: 8px;
+    padding: 12px; font-family: "Cascadia Code", Consolas, monospace; font-size: 13px;
+    color: var(--honey-2); white-space: pre-wrap; word-break: break-all;
+  }
+
+  /* Live view */
+  .phases { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+  .phase {
+    padding: 6px 12px; border-radius: 20px; font-size: 12px; color: var(--muted);
+    border: 1px solid var(--line); background: var(--panel-2); position: relative;
+  }
+  .phase.active { background: var(--honey); color: #241c05; border-color: var(--honey); font-weight: 700; }
+  .phase.past { color: var(--good); border-color: #2f5b3f; }
+  .phase.past::before { content: "\2713 "; }
+  .meta-line { color: var(--muted); font-size: 13px; margin: 6px 0 18px; }
+  .meta-line b { color: var(--ink); }
+  .acard {
+    border: 1px solid var(--line); border-radius: 10px; padding: 12px; background: var(--panel-2);
+    border-left: 4px solid var(--queued);
+  }
+  .acard.running { border-left-color: var(--running); box-shadow: 0 0 0 1px rgba(245,179,1,.25); }
+  .acard.done { border-left-color: var(--done); }
+  .acard.failed { border-left-color: var(--failed); }
+  .acard.skipped { border-left-color: var(--skipped); opacity: .6; }
+  .acard .top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  .acard .name { font-size: 13px; font-weight: 600; }
+  .badge {
+    font-size: 10px; text-transform: uppercase; letter-spacing: .5px;
+    padding: 3px 8px; border-radius: 20px; font-weight: 700;
+  }
+  .badge.queued { background: #332e22; color: var(--muted); }
+  .badge.running { background: var(--honey); color: #241c05; }
+  .badge.done { background: #1f3b2a; color: var(--done); }
+  .badge.skipped { background: #2a2519; color: var(--muted); }
+  .badge.failed { background: #3b1f1c; color: var(--bad); }
+  .acard .sub { color: var(--muted); font-size: 12px; margin-top: 8px; display: flex; justify-content: space-between; }
+  .acard .model-chip { color: var(--honey-2); }
+  .spin { display: inline-block; width: 10px; height: 10px; border: 2px solid #241c05;
+    border-top-color: transparent; border-radius: 50%; animation: sp .8s linear infinite; vertical-align: middle; }
+  @keyframes sp { to { transform: rotate(360deg); } }
+  .totals { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 6px; }
+  .stat { background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px; padding: 10px 16px; }
+  .stat .n { font-size: 22px; font-weight: 800; color: var(--honey-2); }
+  .stat .l { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; }
+  details.run-prompt { margin-top: 16px; }
+  details.run-prompt summary { cursor: pointer; color: var(--honey-2); font-size: 13px; }
+  iframe.report { width: 100%; height: 78vh; border: 1px solid var(--line); border-radius: 10px; background: #fff; }
+  .empty { color: var(--muted); text-align: center; padding: 40px 0; }
+  .legend { font-size: 11px; color: var(--muted); margin-top: 10px; }
+</style>
+</head>
+<body>
+<header>
+  <div class="hex">A</div>
+  <div>
+    <h1>Audit<span>Hive</span> <span style="color:var(--muted);font-weight:400">dashboard</span></h1>
+    <div class="sub" id="conn">connecting…</div>
+  </div>
+  <nav>
+    <button data-view="launcher" class="active">Launcher</button>
+    <button data-view="live">Live</button>
+    <button data-view="report">Report</button>
+  </nav>
+</header>
+
+<main>
+  <!-- LAUNCHER ------------------------------------------------------------->
+  <section class="view active" id="view-launcher">
+    <div class="card">
+      <h2>Configure a run</h2>
+      <div class="hint">The GUI can't start Claude. Configure &amp; save here, then <b>Copy command</b> and paste it into Claude Code.</div>
+      <div class="row">
+        <div>
+          <label>Target URL (or file paths / flow description)</label>
+          <input type="text" id="target" placeholder="https://example.com">
+        </div>
+      </div>
+      <div class="row">
+        <div>
+          <label>Core task (optional)</label>
+          <input type="text" id="coretask" placeholder="book an appointment">
+        </div>
+        <div>
+          <label>Benchmark / rival URL (--benchmark)</label>
+          <input type="url" id="benchmark" placeholder="https://rival.com">
+        </div>
+      </div>
+      <div class="row">
+        <div>
+          <label>Previous report for re-audit (--verify)</label>
+          <input type="text" id="verify" placeholder="audit-output/AUDIT-REPORT-20260101.md">
+        </div>
+        <div>
+          <label>Industry preset</label>
+          <select id="industry">
+            <option value="">(none)</option>
+            <option>e-commerce</option>
+            <option>fuel / oil / energy</option>
+            <option>SaaS</option>
+            <option>healthcare</option>
+            <option>finance</option>
+            <option>government</option>
+            <option>education</option>
+            <option>media / publishing</option>
+          </select>
+        </div>
+      </div>
+      <div class="row">
+        <div>
+          <label>Desktop viewport (w × h)</label>
+          <div class="vp"><input type="number" id="dw" value="1440"> × <input type="number" id="dh" value="900"></div>
+        </div>
+        <div>
+          <label>Mobile viewport (w × h)</label>
+          <div class="vp"><input type="number" id="mw" value="390"> × <input type="number" id="mh" value="844"></div>
+        </div>
+        <div>
+          <label>HTML report</label>
+          <select id="htmlreport"><option value="true">Yes (default)</option><option value="false">No</option></select>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Agents &amp; models</h2>
+      <div class="hint">Uncheck to disable an agent for the next run. Pick the model each agent runs on — saving applies model changes to the agent files immediately (a one-time <span class="mono">.bak</span> is kept).</div>
+      <div class="grid" id="agentlist"><div class="empty">loading agents…</div></div>
+      <div class="legend">fix-strategist can't be disabled (it's the synthesis step) but its model is still editable.</div>
+    </div>
+
+    <div class="card">
+      <div class="btns">
+        <button class="primary" id="save">Save config &amp; models</button>
+        <button class="ghost" id="copy">Copy command</button>
+      </div>
+      <div class="toast" id="toast"></div>
+      <label>Command preview</label>
+      <div class="cmdbox" id="cmdpreview">/audit …</div>
+    </div>
+  </section>
+
+  <!-- LIVE ----------------------------------------------------------------->
+  <section class="view" id="view-live">
+    <div class="card">
+      <h2>Run progress</h2>
+      <div class="phases" id="phases"></div>
+      <div class="meta-line" id="runmeta">No active run. Start one from Claude Code with the copied command.</div>
+      <div class="totals" id="livetotals"></div>
+    </div>
+    <div class="card">
+      <h2>Agents</h2>
+      <div class="grid" id="livecards"><div class="empty">Waiting for a run…</div></div>
+    </div>
+  </section>
+
+  <!-- REPORT --------------------------------------------------------------->
+  <section class="view" id="view-report">
+    <div class="card">
+      <h2>Final report</h2>
+      <div class="totals" id="reporttotals"></div>
+      <div id="reporthost"><div class="empty">The report appears here when the run reaches the <b>complete</b> phase.</div></div>
+      <details class="run-prompt" id="runpromptbox" style="display:none">
+        <summary>Run prompt — command, config &amp; per-agent models</summary>
+        <label>Command</label>
+        <div class="cmdbox" id="rp-cmd"></div>
+        <label>Per-agent models</label>
+        <div class="cmdbox" id="rp-models"></div>
+      </details>
+    </div>
+  </section>
+</main>
+
+<script>
+const PHASE_ORDER = ["config","intake","screenshots","fan-out","benchmark","synthesis","report","complete"];
+const NON_DISABLABLE = "fix-strategist";
+let AGENTS = {};       // name -> model (from /agents)
+let LAST_STATUS = null;
+let currentView = "launcher";
+
+function $(id){ return document.getElementById(id); }
+function esc(s){ return String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+
+// --- nav ---
+document.querySelectorAll("nav button").forEach(b=>{
+  b.onclick = ()=> switchView(b.dataset.view);
+});
+function switchView(v){
+  currentView = v;
+  document.querySelectorAll("nav button").forEach(b=>b.classList.toggle("active", b.dataset.view===v));
+  document.querySelectorAll(".view").forEach(s=>s.classList.remove("active"));
+  $("view-"+v).classList.add("active");
+}
+
+// --- agents / launcher ---
+async function loadAgents(){
+  try {
+    const r = await fetch("/agents");
+    AGENTS = await r.json();
+  } catch(e){ AGENTS = {}; }
+  renderAgentList();
+}
+function modelOptions(sel){
+  return ["haiku","sonnet","opus","fable"].map(m=>
+    `<option ${sel===m?"selected":""}>${m}</option>`).join("")
+    + (sel && !["haiku","sonnet","opus","fable"].includes(sel)
+       ? `<option selected>${esc(sel)}</option>` : "");
+}
+function renderAgentList(){
+  const names = Object.keys(AGENTS).sort();
+  if(!names.length){ $("agentlist").innerHTML = '<div class="empty">no agents found</div>'; return; }
+  $("agentlist").innerHTML = names.map(n=>{
+    const disablable = n !== NON_DISABLABLE;
+    const model = AGENTS[n] || "";
+    return `<div class="agent-row">
+      <input type="checkbox" class="en" data-name="${esc(n)}" ${disablable?"checked":"checked disabled"} title="${disablable?"enabled":"required"}>
+      <div class="nm">${esc(n)}${disablable?"":"<small>synthesis · required</small>"}</div>
+      <select class="mdl" data-name="${esc(n)}">${modelOptions(model)}</select>
+    </div>`;
+  }).join("");
+  $("agentlist").querySelectorAll("input,select").forEach(el=> el.addEventListener("change", buildCommand));
+  buildCommand();
+}
+
+function collectConfig(){
+  const disabled = [];
+  document.querySelectorAll("#agentlist .en").forEach(cb=>{
+    if(!cb.disabled && !cb.checked) disabled.push(cb.dataset.name);
+  });
+  const cfg = {
+    disabled_agents: disabled,
+    viewports: {
+      desktop: [ +$("dw").value||1440, +$("dh").value||900 ],
+      mobile:  [ +$("mw").value||390,  +$("mh").value||844 ]
+    },
+    html_report: $("htmlreport").value === "true"
+  };
+  const ind = $("industry").value.trim();
+  if(ind) cfg.industry = ind;
+  return cfg;
+}
+function collectModels(){
+  const m = {};
+  document.querySelectorAll("#agentlist .mdl").forEach(s=> m[s.dataset.name] = s.value);
+  return m;
+}
+function buildCommand(){
+  const target = $("target").value.trim() || "<target>";
+  let cmd = "/audit " + target;
+  const ct = $("coretask").value.trim();
+  if(ct) cmd += ` core task: "${ct}"`;
+  const v = $("verify").value.trim();
+  if(v) cmd += ` --verify ${v}`;
+  const b = $("benchmark").value.trim();
+  if(b) cmd += ` --benchmark ${b}`;
+  $("cmdpreview").textContent = cmd;
+  return cmd;
+}
+["target","coretask","verify","benchmark"].forEach(id=> $(id).addEventListener("input", buildCommand));
+
+$("save").onclick = async ()=>{
+  const toast = $("toast"); toast.className="toast"; toast.textContent="saving…";
+  try {
+    const cfgRes = await fetch("/config",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(collectConfig())});
+    const mdlRes = await fetch("/models",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(collectModels())});
+    const cfgJson = await cfgRes.json();
+    const mdlJson = await mdlRes.json();
+    if(mdlJson.agents) { AGENTS = mdlJson.agents; }
+    const failed = mdlJson.results ? Object.entries(mdlJson.results).filter(([,r])=>!r.ok) : [];
+    if(cfgRes.ok && failed.length===0){
+      toast.textContent = "Saved audithive.config.json and applied models ✓";
+    } else {
+      toast.className="toast err";
+      toast.textContent = "Saved config; some model edits failed: " + failed.map(([n])=>n).join(", ");
+    }
+  } catch(e){
+    toast.className="toast err"; toast.textContent = "Save failed: " + e;
+  }
+};
+$("copy").onclick = async ()=>{
+  const cmd = buildCommand();
+  try { await navigator.clipboard.writeText(cmd); $("toast").className="toast"; $("toast").textContent="Command copied to clipboard ✓"; }
+  catch(e){ $("toast").className="toast err"; $("toast").textContent="Copy failed — select the preview text manually."; }
+};
+
+// --- live / status polling ---
+function fmtElapsed(startIso){
+  if(!startIso) return "—";
+  const start = Date.parse(startIso);
+  if(isNaN(start)) return "—";
+  let s = Math.max(0, Math.floor((Date.now()-start)/1000));
+  const h=Math.floor(s/3600); s-=h*3600; const m=Math.floor(s/60); s-=m*60;
+  return (h?h+"h ":"") + (m||h?m+"m ":"") + s + "s";
+}
+function renderPhases(phase){
+  const idx = PHASE_ORDER.indexOf(phase);
+  $("phases").innerHTML = PHASE_ORDER.map((p,i)=>{
+    let cls="phase";
+    if(phase==="complete" && p!=="complete") cls+=" past";
+    else if(i<idx) cls+=" past";
+    else if(i===idx) cls+=" active";
+    return `<span class="${cls}">${p}</span>`;
+  }).join("");
+}
+function stateBadge(st){ return `<span class="badge ${st}">${st}${st==="running"?' <span class="spin"></span>':""}</span>`; }
+function renderLive(st){
+  if(!st || !st.phase){
+    $("runmeta").textContent = "No active run. Start one from Claude Code with the copied command.";
+    $("phases").innerHTML=""; $("livetotals").innerHTML="";
+    $("livecards").innerHTML='<div class="empty">Waiting for a run…</div>';
+    return;
+  }
+  renderPhases(st.phase);
+  const parts = [];
+  if(st.target) parts.push(`<b>${esc(st.target)}</b>`);
+  if(st.core_task) parts.push(`task: ${esc(st.core_task)}`);
+  if(st.benchmark_url) parts.push(`vs ${esc(st.benchmark_url)}`);
+  parts.push(`elapsed <b>${fmtElapsed(st.started_at)}</b>`);
+  if(st.run_id) parts.push(`<span class="mono">${esc(st.run_id)}</span>`);
+  $("runmeta").innerHTML = parts.join(" · ");
+
+  const t = st.totals || {};
+  $("livetotals").innerHTML = (st.phase==="complete") ? totalsHTML(t) : "";
+
+  const agents = st.agents || {};
+  const names = Object.keys(agents);
+  if(!names.length){ $("livecards").innerHTML='<div class="empty">No agents in this run.</div>'; return; }
+  $("livecards").innerHTML = names.map(n=>{
+    const a = agents[n] || {};
+    const st2 = a.state || "queued";
+    const findings = (a.findings==null) ? "" : `${a.findings} finding${a.findings===1?"":"s"}`;
+    return `<div class="acard ${st2}">
+      <div class="top"><span class="name">${esc(n)}</span>${stateBadge(st2)}</div>
+      <div class="sub"><span class="model-chip">${esc(a.model||"—")}</span><span>${findings}</span></div>
+    </div>`;
+  }).join("");
+}
+function totalsHTML(t){
+  const cell=(n,l)=>`<div class="stat"><div class="n">${n==null?"—":n}</div><div class="l">${l}</div></div>`;
+  return cell(t.findings,"findings")+cell(t.blockers,"blockers")+cell(t.now_items,"NOW items")+cell(t.overall_score,"health /100");
+}
+
+// --- report ---
+let reportLoadedFor = null;
+function renderReport(st){
+  if(!st || st.phase!=="complete"){
+    $("reporttotals").innerHTML="";
+    $("reporthost").innerHTML='<div class="empty">The report appears here when the run reaches the <b>complete</b> phase.</div>';
+    $("runpromptbox").style.display="none";
+    reportLoadedFor=null;
+    return;
+  }
+  $("reporttotals").innerHTML = totalsHTML(st.totals||{});
+  const html = st.report_html;
+  if(html){
+    let src = html;
+    // Normalize to a server-served path.
+    if(/^https?:/i.test(src)){ /* absolute, leave */ }
+    else {
+      const base = src.replace(/\\/g,"/").split("/").pop();
+      src = "/audit-output/" + base;
+    }
+    if(reportLoadedFor !== src){
+      $("reporthost").innerHTML = `<iframe class="report" src="${esc(src)}"></iframe>`;
+      reportLoadedFor = src;
+    }
+  } else if(reportLoadedFor!=="__md"){
+    const md = st.report_md ? esc(st.report_md) : "";
+    $("reporthost").innerHTML = `<div class="empty">No HTML report was generated (html_report disabled). Markdown at <span class="mono">${md}</span></div>`;
+    reportLoadedFor="__md";
+  }
+  // run prompt box
+  $("runpromptbox").style.display="";
+  const models = st.agents ? Object.entries(st.agents).map(([n,a])=>`${n}: ${a.model||"—"}`).join("\n") : "";
+  let cmd = "/audit " + (st.target||"");
+  if(st.core_task) cmd += ` core task: "${st.core_task}"`;
+  if(st.benchmark_url) cmd += ` --benchmark ${st.benchmark_url}`;
+  $("rp-cmd").textContent = cmd;
+  $("rp-models").textContent = models;
+}
+
+// --- poll loop ---
+let sawRun = false;
+async function poll(){
+  try {
+    const r = await fetch("/status",{cache:"no-store"});
+    const st = await r.json();
+    LAST_STATUS = st;
+    $("conn").textContent = st && st.phase ? ("phase: " + st.phase) : "idle — no active run";
+    renderLive(st);
+    renderReport(st);
+    // Auto-advance the view the first time a run appears / completes.
+    if(st && st.phase){
+      if(!sawRun){ sawRun = true; if(currentView==="launcher") switchView("live"); }
+      if(st.phase==="complete" && currentView==="live") switchView("report");
+    }
+  } catch(e){
+    $("conn").textContent = "server unreachable";
+  }
+}
+
+loadAgents();
+poll();
+setInterval(poll, 2000);
+// keep elapsed ticking between polls
+setInterval(()=>{ if(LAST_STATUS && LAST_STATUS.phase && LAST_STATUS.phase!=="complete") renderLive(LAST_STATUS); }, 1000);
+</script>
+</body>
+</html>
