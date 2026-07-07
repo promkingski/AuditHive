@@ -6,19 +6,8 @@ Point it at a URL, a set of screenshots, or a written flow description. Get back
 
 ## How it works
 
-```
-                    /audit <target>
-                          │
-        ┌────────┬────────┼────────┬────────┐
-        ▼        ▼        ▼        ▼        ▼        (×9, all parallel)
-   ux-friction  accessibility  first-time-user  task-flow  error-handling
-   ux-copy      visual-design  vibe-coding      compliance
-        └────────┴────────┼────────┴────────┘
-                          ▼
-                   fix-strategist        (synthesis, runs last)
-                          ▼
-              audit-output/AUDIT-REPORT-[date].md
-```
+<img width="1672" height="941" alt="image" src="https://github.com/user-attachments/assets/b05bc104-656e-4cbe-a2e8-8c4d92ff2a32" />
+
 
 **Phase 0 — Intake.** The orchestrator parses the target (URL, file paths, or flow description) and an optional core task, and confirms the target is reachable before spending tokens on the fan-out.
 
