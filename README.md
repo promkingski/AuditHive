@@ -6,7 +6,8 @@ Point it at a URL, a set of screenshots, or a written flow description. Get back
 
 ## How it works
 
-<img width="1672" height="941" alt="image" src="https://github.com/user-attachments/assets/b05bc104-656e-4cbe-a2e8-8c4d92ff2a32" />
+<img width="1254" height="1254" alt="AuditHiveDiragram" src="https://github.com/user-attachments/assets/a8b3b53c-b487-45b7-93c7-9224bdf166fb" />
+
 
 **Phase D — Dashboard bootstrap.** The orchestrator starts a tiny Python-stdlib server and opens a browser dashboard that polls the run's `status.json`, so you can watch every phase and agent live. See [Live dashboard](#live-dashboard) below.
 
