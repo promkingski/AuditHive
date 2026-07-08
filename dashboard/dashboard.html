@@ -349,6 +349,18 @@
     color: var(--amber-2); white-space: pre-wrap; word-break: break-all;
   }
 
+  .fixprompt-bar {
+    display: flex; align-items: center; gap: 16px;
+    margin: 20px 26px 0; padding: 16px 18px;
+    background: linear-gradient(180deg, rgba(246,183,30,.07), rgba(246,183,30,.02));
+    border: 1px solid var(--amber-dim); border-radius: 8px;
+  }
+  .fixprompt-bar .fp-txt { flex: 1; min-width: 0; }
+  .fixprompt-bar .fp-h { font-family: var(--mono); font-size: 11px; letter-spacing: 1.4px; color: var(--amber-2); }
+  .fixprompt-bar .fp-s { font-size: 12px; color: var(--sub); margin-top: 4px; }
+  .fixprompt-bar .fp-actions { display: flex; align-items: center; gap: 12px; flex: 0 0 auto; }
+  .fixprompt-bar a.primary { text-decoration: none; display: inline-block; }
+
   /* ── responsive ────────────────────────────────────────── */
   @media (max-width: 1100px) {
     .fgrid { grid-template-columns: 1fr; gap: 0; }
@@ -564,6 +576,16 @@
             </div>
           </div>
         </div>
+        <div class="fixprompt-bar" id="fixpromptbar" style="display:none">
+          <div class="fp-txt">
+            <div class="fp-h">FIX PROMPT READY</div>
+            <div class="fp-s">A copy-paste prompt covering every finding — hand it to a coding agent to implement the fixes.</div>
+          </div>
+          <div class="fp-actions">
+            <button class="ghost" id="fp-copy">COPY</button>
+            <a class="primary" id="fp-open" target="_blank" rel="noopener">Open</a>
+          </div>
+        </div>
         <details class="run-prompt" id="runpromptbox" style="display:none">
           <summary>RUN PROMPT — COMMAND, CONFIG &amp; PER-AGENT MODELS</summary>
           <label>COMMAND</label>
@@ -775,6 +797,14 @@ $("copy").onclick = async ()=>{
   try { await navigator.clipboard.writeText(cmd); toast("Command copied to clipboard ✓"); }
   catch(e){ toast("Copy failed — select the command text manually.", true); }
 };
+$("fp-copy").onclick = async ()=>{
+  if(!fixPromptSrc){ toast("No fix prompt available yet.", true); return; }
+  try {
+    const text = await (await fetch(fixPromptSrc)).text();
+    await navigator.clipboard.writeText(text);
+    toast("Fix prompt copied to clipboard ✓");
+  } catch(e){ toast("Copy failed — use Open, then copy manually.", true); }
+};
 
 // --- live / status polling ---
 function fmtElapsed(startIso){
@@ -876,12 +906,14 @@ function totalsHTML(t){
 
 // --- report ---
 let reportLoadedFor = null;
+let fixPromptSrc = null;
 const EMPTY_REPORT = '<div class="empty"><div class="hex">&#9636;</div><div class="h">No report generated yet</div><div class="s">Run an audit to see findings, recommendations,<br>and exported reports here.</div></div>';
 function renderReport(st){
   if(!st || st.phase!=="complete"){
     $("reporttotals").innerHTML="";
     $("reporthost").innerHTML = EMPTY_REPORT;
     $("runpromptbox").style.display="none";
+    $("fixpromptbar").style.display="none";
     reportLoadedFor=null;
     return;
   }
@@ -904,6 +936,22 @@ function renderReport(st){
     reportLoadedFor="__md";
   }
   $("runpromptbox").style.display="";
+
+  const fp = st.fix_prompt;
+  const fpbar = $("fixpromptbar");
+  if(fp){
+    let src = fp;
+    if(!/^(https?|blob):/i.test(src)){
+      src = "/audit-output/" + src.replace(/\\/g,"/").split("/").pop();
+    }
+    fixPromptSrc = src;
+    $("fp-open").href = src;
+    fpbar.style.display = "";
+  } else {
+    fixPromptSrc = null;
+    fpbar.style.display = "none";
+  }
+
   const models = st.agents ? Object.entries(st.agents).map(([n,a])=>`${n}: ${a.model||"—"}`).join("\n") : "";
   let cmd = "/audit " + (st.target||"");
   if(st.core_task) cmd += ` core task: "${st.core_task}"`;
@@ -1019,6 +1067,7 @@ const DEMO = {
     if(phase==="complete"){
       st.totals = { findings: 47, blockers: 5, now_items: 9, overall_score: 71 };
       st.report_html = this.reportBlob();
+      st.fix_prompt = this.fixPromptBlob();
     }
     this.st = st;
     return st;
@@ -1032,6 +1081,23 @@ const DEMO = {
     const html = "<!doctype html><html><head><meta charset='utf-8'><style>body{font:14px/1.6 -apple-system,'Segoe UI',sans-serif;color:#1a2438;margin:32px;max-width:760px}h1{font-size:22px}h2{font-size:16px;margin-top:28px;border-bottom:1px solid #dfe5f0;padding-bottom:6px}.score{font-size:40px;font-weight:800;color:#b07a00}.tag{display:inline-block;font:600 11px monospace;background:#fff3d1;color:#7a5600;padding:2px 8px;border-radius:4px}</style></head><body><span class='tag'>DEMO DATA</span><h1>AUDIT-REPORT-20260707 — example.com</h1><div class='score'>71 / 100</div><p>47 findings · 5 blockers · 9 NOW items. The checkout flow works but leaks trust: the primary CTA fails contrast on mobile, error messages blame the user, and the cookie banner blocks the first meaningful click.</p><h2>NOW</h2><p>Fix CTA contrast (A-03), declined-card recovery (E-01), CCPA link (CP-02).</p><h2>NEXT</h2><p>Rewrite error copy, unblock cookie banner, reduce checkout steps.</p><h2>LATER</h2><p>Visual polish, LCP image pipeline.</p><p><i>Simulated content from the dashboard's demo mode.</i></p></body></html>";
     this.blobUrl = URL.createObjectURL(new Blob([html], {type:"text/html"}));
     return this.blobUrl;
+  },
+  fixPromptBlob(){
+    if(this.fpBlobUrl) return this.fpBlobUrl;
+    const md = "<!-- Generated by AuditHive from AUDIT-REPORT-20260707 (demo) -->\n"
+      + "You are fixing UX, accessibility, compliance, and performance issues found in an audit of https://example.com (core task: \"book an appointment\"). Work top to bottom — NOW items first, then NEXT, then LATER — and after each fix run its validation check before moving on. Do not batch unrelated changes into one commit.\n\n"
+      + "## NOW\n"
+      + "- [ ] Raise primary CTA contrast to ≥ 4.5:1 on mobile — components/Cta.tsx\n      Why: fails at 2.7:1, invisible in bright light · Sources: A-03, V-01, F-02 · Validate: axe DevTools shows 0 contrast errors on the CTA at 390px.\n"
+      + "- [ ] Add declined-card recovery path with a retry + alternate-payment option — checkout/payment.ts\n      Why: dead end on decline, top abandonment point · Sources: E-01, T-03 · Validate: simulate a declined test card; user can retry without losing cart.\n"
+      + "- [ ] Add the CCPA “Do Not Sell or Share My Personal Information” link to the footer — layout/Footer.tsx\n      Why: legally required disclosure absent · Sources: CP-02 · Validate: link present on every page and resolves to the opt-out form.\n\n"
+      + "## NEXT\n"
+      + "- [ ] Rewrite blaming error messages to state cause + next step — copy/errors.json\n      Why: messages blame the user · Sources: C-04, E-02 · Validate: each error names what to do next; no “invalid”-only strings.\n"
+      + "- [ ] Stop the cookie banner from blocking the first meaningful click — components/CookieBanner.tsx\n      Why: intercepts the primary CTA on load · Sources: N-02, F-05 · Validate: CTA is clickable on first paint with the banner up.\n\n"
+      + "## LATER\n"
+      + "- [ ] Normalize spacing/labels on the confirmation screen — checkout/Confirm.tsx\n      Why: minor inconsistency · Sources: V-03 · Validate: matches the design-token scale.\n\n"
+      + "(Simulated demo data.)\n";
+    this.fpBlobUrl = URL.createObjectURL(new Blob([md], {type:"text/markdown"}));
+    return this.fpBlobUrl;
   },
   start(){
     if(this.active) return;
@@ -1052,6 +1118,7 @@ const DEMO = {
     clearInterval(this.timer); this.timer = null;
     this.active = false; this.st = null; this.tick = 0;
     if(this.blobUrl){ URL.revokeObjectURL(this.blobUrl); this.blobUrl = null; }
+    if(this.fpBlobUrl){ URL.revokeObjectURL(this.fpBlobUrl); this.fpBlobUrl = null; }
     sawRun = false; reportLoadedFor = null;
     $("demobtn").innerHTML = "&#9654; DEMO RUN";
     toast("Demo ended");

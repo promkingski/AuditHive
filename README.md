@@ -21,7 +21,7 @@ Point it at a URL, a set of screenshots, or a written flow description. Get back
 
 **Phase 2 — Fan-in.** The fix-strategist consumes all reports and produces 0–100 health scores per category plus a prioritized roadmap — ranked by usability, accessibility, and conversion impact, with validation criteria for each fix. The adversarial hate-agent's findings are weighed as devil's-advocate input — promoted only when corroborated, and never counted toward the health scores.
 
-**Phase 3 — Deliverables.** A markdown report (roadmap and scores up front, raw specialist reports as an appendix) plus a self-contained HTML dashboard with score cards and collapsible findings.
+**Phase 3 — Deliverables.** Three files: a markdown report (roadmap and scores up front, raw specialist reports as an appendix); a self-contained HTML dashboard with score cards and collapsible findings; and `FIX-PROMPT-[date].md`, a copy-paste-ready prompt that turns every finding into an actionable NOW/NEXT/LATER checklist you can hand straight to a coding agent to implement the fixes.
 
 ## The eleven auditors
 
@@ -93,7 +93,7 @@ Optional `audithive.config.json` in the working directory:
 }
 ```
 
-The run ends with a short executive summary in chat, finding counts, the overall health score, and the full report at `audit-output/AUDIT-REPORT-[date].md` (+ `.html` dashboard). The pipeline deliberately stops there — it never starts implementing fixes on its own.
+The run ends with a short executive summary in chat, finding counts, the overall health score, the full report at `audit-output/AUDIT-REPORT-[date].md` (+ `.html` dashboard), and a ready-to-run `audit-output/FIX-PROMPT-[date].md`. The pipeline deliberately stops there — it never starts implementing fixes on its own, but the fix prompt hands the whole punch list to whatever agent you choose.
 
 ## Live dashboard
 
@@ -117,7 +117,7 @@ It picks a free port (preferring 8787), prints `AuditHive dashboard: http://loca
 
 - **Launcher** — a form for the target URL, core task, `--benchmark` rival, `--verify` previous report, industry preset, and viewport sizes, plus a checkbox per agent (to disable it) and a **model dropdown** per agent. **Save config & models** writes `audithive.config.json` to the working directory *and* applies the model changes to the agent files. **Copy command** builds the exact `/audit …` string (with `--verify` / `--benchmark` flags) to paste into Claude Code — the GUI can't launch Claude itself.
 - **Live progress** — polls `audit-output/status.json` every 2s: a phase banner (config → intake → screenshots → fan-out → benchmark → synthesis → report → complete), a card per agent showing QUEUED / RUNNING / DONE (with finding count) / SKIPPED / FAILED and the model it ran on, and a live elapsed timer.
-- **Report** — once the run reaches `complete`, loads that run's `AUDIT-REPORT-*.html` inline, with a collapsible "Run prompt" section showing the exact command, config, and per-agent models used.
+- **Report** — once the run reaches `complete`, loads that run's `AUDIT-REPORT-*.html` inline, surfaces a "Fix prompt ready" bar with Open and Copy actions for `FIX-PROMPT-*.md`, and has a collapsible "Run prompt" section showing the exact command, config, and per-agent models used.
 
 ### Model switching from the GUI
 

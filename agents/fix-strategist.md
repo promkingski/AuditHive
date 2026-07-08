@@ -18,6 +18,7 @@ Based on ALL identified UX, accessibility, compliance, and performance issues:
    - LATER: backlog (quality-of-life, polish)
 4. For every item, estimate relative effort (S / M / L) and state HOW the improvement should be validated after implementation (metric, test, or check).
 5. SCORE each category 0-100 (100 = clean): friction, accessibility, first-time experience, task flow, error handling, copy, visual, authenticity, compliance, performance. Derive each score from the count and severity of that auditor's findings (a CRITICAL costs far more than a LOW). Compute an overall score as the mean, weighted double for accessibility and performance. Scores make successive audits comparable - be consistent and justify each in one line.
+6. EMIT A FIX PROMPT: produce a single self-contained prompt an engineer can paste into a coding agent to implement the fixes. It must cover EVERY roadmap item across all three tiers (nothing dropped) in NOW -> NEXT -> LATER order, each as one actionable task. Because you deduplicated, a merged item stands in for all its source findings - cite every source ID on it so completeness is preserved. See the Fix prompt section below for the exact shape.
 
 ## Weighing the hate-agent (H- findings)
 
@@ -77,6 +78,25 @@ If a COMPETITOR's audit reports are included in your input, add a comparison: ca
 
 ## Conflicts and judgment calls
 [Anywhere auditors disagreed or a fix trades one value against another, with your recommendation]
+
+## Fix prompt
+[A copy-paste-ready prompt for a coding agent, emitted verbatim inside a single fenced ```text block so the reader can lift it whole. It MUST be self-contained: someone with only this block plus repo access has everything they need - never say "see the roadmap above." Use this structure:]
+
+```text
+You are fixing UX, accessibility, compliance, and performance issues found in an audit of <TARGET>[ (core task: "<CORE_TASK>")]. Work top to bottom - NOW items first, then NEXT, then LATER - and after each fix run its validation check before moving on. Do not batch unrelated changes into one commit.
+
+## NOW
+- [ ] <concrete change to make> — <file/component/area if identifiable, else "locate">
+      Why: <one line> · Sources: <F-1, A-3, ...> · Validate: <the check that proves it fixed>
+- [ ] ...
+
+## NEXT
+- [ ] ...
+
+## LATER
+- [ ] ...
+```
+[Include every roadmap item as one checkbox. Keep each task imperative and specific enough to act on without re-reading the findings. Carry the source IDs so a reader can trace any task back to the raw report.]
 ```
 
 Be decisive in ranking. A roadmap where everything is priority one is not a roadmap.
